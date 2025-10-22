@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Training System - Fine-Tuning</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        /* Estilos adicionais para o sistema de quantização */
+        .quantization-config input[readonly] {
+            background-color: #f8fafc;
+            border: 1px solid #cbd5e1;
+            cursor: not-allowed;
+        }
+        .quantization-config input[readonly]:focus {
+            outline: none;
+            box-shadow: none;
+        }
+        #quantizationStatus {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 4px;
+            background-color: #f8fafc;
+            border: 1px solid #e2e8f0;
+        }
+        .btn.loading {
+            position: relative;
+            pointer-events: none;
+        }
+        .btn.loading::after {
+            content: '';
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            margin-left: 8px;
+            border: 2px solid #ffffff;
+            border-top: 2px solid transparent;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Estilos para tooltips e ícones de ajuda */
+        .help-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 16px;
+            height: 16px;
+            margin-left: 6px;
+            background-color: #6366f1;
+            color: white;
+            border-radius: 50%;
+            font-size: 10px;
+            font-weight: bold;
+            cursor: help;
+            position: relative;
+            vertical-align: middle;
+        }
+        
+        .help-icon:hover {
+            background-color: #4f46e5;
+        }
+        
+        .tooltip {
+            position: absolute;
+            bottom: 125%;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #1f2937;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            line-height: 1.4;
+            white-space: nowrap;
+            max-width: 250px;
+            white-space: normal;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s, visibility 0.3s;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        
+        .tooltip::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 5px solid transparent;
+            border-top-color: #1f2937;
+        }
+        
+        .help-icon:hover .tooltip {
+            opacity: 1;
+            visibility: visible;
+        }
+        
+        .form-group label {
+            display: flex;
+            align-items: center;
+        }
+        
+        .card h2 {
+            display: flex;
+            align-items: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">
+                <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                    <rect width="32" height="32" rx="8" fill="#6366F1"/>
+                    <path d="M16 8L24 16L16 24L8 16L16 8Z" fill="white"/>
+                </svg>
+                <h1>AI Training System</h1>
+            </div>
+            <div class="status-indicator" id="modelStatus">
+                <span class="dot"></span>
+                <span>Modelo não carregado</span>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Left Panel - Upload & Config -->
+            <div class="left-panel">
+                <div class="card">
+                    <h2>✨ Criar Modelo USBABC Profissional
+                        <span class="help-icon">?
+                            <div class="tooltip">
+                                Cria um modelo USBABC profissional do zero com arquitetura avançada: GQA, RoPE, RMSNorm, SwiGLU. Otimizado para português e pronto para fine-tuning. O modelo já vem com dados de treinamento incorporados.
+                            </div>
+                        </span>
+                    </h2>
+                    <button class="btn btn-success" id="createModel" style="width: 100%; margin-bottom: 10px;">
+                        <span class="btn-text">✨ CRIAR MODELO USBABC PROFISSIONAL</span>
+                    </button>
+                </div>
+
+                <div class="card">
+                    <h2>🌐 Scraping Web (Gerar Dados)
+                        <span class="help-icon">?
+                            <div class="tooltip">
+                                Busca automaticamente na web por conteúdo relacionado ao seu tópico e gera dados de treinamento em formato JSON. Útil para criar datasets personalizados rapidamente.
+                            </div>
+                        </span>
+                    </h2>
+                    <div class="scraping-form">
+                        <div class="form-group">
+                            <label>Query de Busca
+                                <span class="help-icon">?
+                                    <div class="tooltip">
+                                        Digite palavras-chave sobre o tópico que deseja treinar. Ex: "programação Python", "receitas veganas", "marketing digital"
+                                    </div>
+                                </span>
+                            </label>
+                            <input type="text" id="scrapingQuery" placeholder="Ex: inteligência artificial 2025">
+                        </div>
+                        <div class="form-group">
+                            <label>Número de Resultados
+                                <span class="help-icon">?
+                                    <div class="tooltip">
+                                        Quantidade de páginas web para processar. Mais resultados = mais dados, mas demora mais tempo. Recomendado: 10-20 para testes.
+                                    </div>
+                                </span>
+                            </label>
+                            <input type="number" id="numResults" value="10" min="1" max="50">
+                        </div>
+                        <button class="btn btn-primary" id="startScraping">
+                            <span class="btn-text">🔍 Iniciar Busca e Gerar Dados</span>
+                        </button>
+                        <div id="scrapingStatus" style="margin-top: 10px; display: none;"></div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2>📦 Carregar Modelo
+                        <span class="help-icon">?
+                            <div class="tooltip">
+                                Carregue seu modelo de IA para treinamento. Suporta formatos: GGUF, SafeTensors, PyTorch (.bin, .pt, .pth), arquivos ZIP de modelos completos e diretórios HuggingFace. O modelo será usado como base para o fine-tuning.
+                            </div>
+                        </span>
+                    </h2>
+                    <div class="upload-zone" id="modelUpload">
+                        <input type="file" id="modelFile" accept=".gguf,.safetensors,.bin,.pt,.pth,.zip" hidden>
+                        <label for="modelFile" class="upload-label">
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="17 8 12 3 7 8"></polyline>
+                                <line x1="12" y1="3" x2="12" y2="15"></line>
+                            </svg>
+                            <p>Arraste seu modelo ou clique para selecionar</p>
+                            <small>Suporta: .gguf, .safetensors, .bin, .pt, .pth, .zip</small>
+                            <span class="file-info" id="modelInfo"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2>📊 Dados de Treinamento
+                        <span class="help-icon">?
+                            <div class="tooltip">
+                                Arquivo com exemplos para treinar o modelo. Formatos aceitos: JSON, JSONL, XLS, CSV, TXT, DOC, PDF. Deve conter pares pergunta-resposta, instrução-saída, ou texto-completação. O sistema detecta automaticamente a estrutura e converte para formato de treinamento.
+                            </div>
+                        </span>
+                    </h2>
+                    <div class="upload-zone" id="dataUpload">
+                        <input type="file" id="dataFile" accept=".json,.jsonl,.xlsx,.xls,.csv,.txt,.doc,.docx,.pdf" hidden>
+                        <label for="dataFile" class="upload-label">
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                <polyline points="14 2 14 8 20 8"></polyline>
+                            </svg>
+                            <p>Arraste seus dados de treinamento</p>
+                            <small>Suporta: JSON, JSONL, XLS, CSV, TXT, DOC, PDF</small>
+                            <span class="file-info" id="dataInfo"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2>⚙️ Configurações de Treinamento
+                        <span class="help-icon">?
+                            <div class="tooltip">
+                                Parâmetros que controlam como o modelo será treinado. Valores padrão são otimizados para a maioria dos casos. Ajuste conforme necessário para seu dataset específico.
+                            </div>
+                        </span>
+                    </h2>
+                    <div class="config-form">
+                        <div class="form-group">
+                            <label>Épocas
+                                <span class="help-icon">?
+                                    <div class="tooltip">
+                                        Quantas vezes o modelo verá todo o dataset. Mais épocas = mais aprendizado, mas risco de overfitting. Recomendado: 2-5 para a maioria dos casos.
+                                    </div>
+                                </span>
+                            </label>
+                            <input type="number" id="epochs" value="3" min="1" max="10">
+                        </div>
+                        <div class="form-group">
+                            <label>Batch Size
+                                <span class="help-icon">?
+                                    <div class="tooltip">
+                                        Quantos exemplos processar por vez. Valores maiores = treinamento mais rápido, mas usa mais memória. Reduza se tiver erro de memória.
+                                    </div>
+                                </span>
+                            </label>
+                            <input type="number" id="batchSize" value="4" min="1" max="16">
+                        </div>
+                        <div class="form-group">
+                            <label>Learning Rate
+                                <span class="help-icon">?
+                                    <div class="tooltip">
+                                        Velocidade de aprendizado. Valores muito altos podem causar instabilidade, muito baixos fazem o treinamento ser lento. 0.0002 é um bom padrão.
+                                    </div>
+                                </span>
+                            </label>
+                            <input type="number" id="learningRate" value="0.0002" step="0.0001">
+                        </div>
+                        <div class="form-group">
+                            <label>LoRA Rank (r)
+                                <span class="help-icon">?
+                                    <div class="tooltip">
+                                        Complexidade do adaptador LoRA. Valores maiores = mais capacidade de aprendizado, mas mais memória. 8-16 é ideal para a maioria dos casos.
+                                    </div>
+                                </span>
+                            </label>
+                            <input type="number" id="loraR" value="8" min="1" max="64">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2>🚀 Controles de Treinamento</h2>
+                    <button class="btn btn-primary" id="startTraining" disabled>
+                        <span class="btn-text">🚀 Iniciar Treinamento</span>
+                    </button>
+                    <button class="btn btn-secondary" id="saveModel" disabled>
+                        <span class="btn-text">💾 Salvar Modelo Treinado</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Center Panel - Chat -->
+            <div class="center-panel">
+                <div class="card chat-card">
+                    <h2>💬 Chat com o Modelo</h2>
+                    <div class="chat-container" id="chatContainer">
+                        <div class="chat-messages" id="chatMessages">
+                            <div class="message system">
+                                <p>Carregue um modelo para começar a conversar...</p>
+                            </div>
+                        </div>
+                        <div class="chat-input">
+                            <input type="text" id="messageInput" placeholder="Digite sua mensagem..." disabled>
+                            <button id="sendMessage" disabled>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel - Metrics & Logs -->
+            <div class="right-panel">
+                <div class="card">
+                    <h2>📈 Métricas de Treinamento</h2>
+                    <div class="metrics" id="metrics">
+                        <div class="metric-item">
+                            <span class="metric-label">Época Atual</span>
+                            <span class="metric-value" id="currentEpoch">0/0</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-label">Loss</span>
+                            <span class="metric-value" id="loss">-</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-label">Progresso</span>
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="progress" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2>📝 Logs</h2>
+                    <div class="logs" id="logs">
+                        <div class="log-item">Sistema iniciado</div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2>💾 Salvar Modelo
+                        <span class="help-icon">?
+                            <div class="tooltip">
+                                Salva o modelo treinado em formato GGUF ou SafeTensors. O nome do arquivo será gerado automaticamente com timestamp.
+                            </div>
+                        </span>
+                    </h2>
+                    <div class="save-config">
+                        <div class="form-group">
+                            <label>Nome do Modelo</label>
+                            <input type="text" id="savePath" placeholder="modelo_treinado" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label>Formato de Saída</label>
+                            <select id="saveFormat" class="form-control">
+                                <option value="safetensors">SafeTensors (Recomendado)</option>
+                                <option value="pytorch">PyTorch (.bin)</option>
+                                <option value="gguf">GGUF (Quantizado)</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-success" id="executeSave" disabled style="width: 100%; margin-top: 10px;">
+                            <span class="btn-text">💾 Salvar Modelo</span>
+                        </button>
+                    </div>
+                </div>
+
+
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
