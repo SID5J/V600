@@ -1,0 +1,287 @@
+# Configuração Unificada - Sistema de Treinamento de IA
+# Combina ARQV30 Enhanced v3.0 com otimizações para estabilidade
+# Atualizado: Outubro 2025
+
+# ============================================================================
+# CAMINHOS DOS DIRETÓRIOS
+# ============================================================================
+paths:
+  model_dir: "modelos"              # Coloque seu modelo .gguf aqui
+  data_dir: "dados"                 # Coloque seus dados de treinamento aqui
+  checkpoint_dir: "checkpoints"     # Checkpoints durante treinamento
+  output_dir: "output_minimal"      # Modelo final treinado (apenas logs)
+  log_dir: "logs"                   # Diretório de logs
+
+# ============================================================================
+# CONFIGURAÇÕES DO MODELO
+# ============================================================================
+model:
+  type: "gguf"                      # Tipo de modelo (gguf, huggingface)
+  base_model: "TinyLlama/TinyLlama-1.1B-Chat-v1.0"  # Modelo base se GGUF não disponível
+  max_length: 384                   # Comprimento máximo de sequência (otimizado)
+  quantization: "4bit"              # Quantização (4bit, 8bit, none)
+
+# ============================================================================
+# CONFIGURAÇÕES DE TREINAMENTO (OTIMIZADAS)
+# ============================================================================
+training:
+  # Configurações básicas
+  epochs: 1                         # Número de épocas (reduzido para estabilidade)
+  batch_size: 8                     # Tamanho do batch (mínimo para economizar memória)
+  learning_rate: 0.0002             # Taxa de aprendizado (2e-4)
+  warmup_steps: 1                   # Passos de warmup (rápido)
+  max_steps: -1                     # Máximo de passos (-1 = usar epochs)
+  
+  # Otimização de gradientes
+  gradient_accumulation_steps: 1    # Acumulação de gradientes (reduzido)
+  max_grad_norm: 1.0                # Norma máxima do gradiente (prevenir explosão)
+  weight_decay: 0.01                # Decaimento de peso
+  
+  # Salvamento e logging (CONSERVADOR)
+  save_steps: 999999                # NÃO salvar checkpoints intermediários
+  save_total_limit: 1               # Apenas o modelo final
+  logging_steps: 1                  # Log a cada 5 passos
+  
+  # Otimizador e scheduler
+  optim: "adamw_torch"              # Otimizador padrão estável
+  lr_scheduler_type: "cosine"       # Scheduler suave
+  
+  # Otimizações de performance
+  dataloader_num_workers: 0         # Sem workers paralelos (mais estável)
+  gradient_checkpointing: false     # Desabilitado para velocidade
+  dataloader_pin_memory: true       # Otimização de memória
+  group_by_length: false            # Desabilitado
+  eval_accumulation_steps: 1        # Acumulação durante avaliação
+
+# ============================================================================
+# CONFIGURAÇÕES LORA (LOW-RANK ADAPTATION)
+# ============================================================================
+lora:
+  # Parâmetros principais
+  r: 8                              # Rank da decomposição LoRA (leve)
+  lora_alpha: 16                    # Alpha para escalonamento LoRA
+  lora_dropout: 0.05                # Dropout LoRA (baixo)
+  
+  # Módulos alvo (apenas essenciais)
+  target_modules:
+    - "q_proj"
+    - "v_proj"
+  
+  # Configurações adicionais
+  bias: "none"                      # Configuração de bias
+  task_type: "CAUSAL_LM"            # Tipo de tarefa
+
+# ============================================================================
+# CONFIGURAÇÕES DE OTIMIZAÇÃO
+# ============================================================================
+optimization:
+  # Precisão numérica
+  fp16: true                        # Usar precisão mista FP16 (se GPU)
+  bf16: false                       # Não usar BF16
+  mixed_precision: true             # Usar precisão mista
+
+# ============================================================================
+# CONFIGURAÇÕES DE DADOS
+# ============================================================================
+data:
+  # Divisão dos dados
+  train_split: 0.9                  # Proporção de dados para treino
+  validation_split: 0.1             # Proporção de dados para validação
+  shuffle: true                     # Embaralhar dados
+  seed: 42                          # Seed para reprodutibilidade
+  
+  # Pré-processamento
+  preprocessing:
+    remove_duplicates: true         # Remover duplicatas
+    min_length: 10                  # Comprimento mínimo de texto
+    max_length: 384                 # Comprimento máximo de texto
+
+# ============================================================================
+# CONFIGURAÇÕES DE AVALIAÇÃO
+# ============================================================================
+evaluation:
+  strategy: "steps"                 # Estratégia de avaliação (steps, epoch)
+  eval_steps: 500                   # Avaliar a cada N passos
+  save_best_model: true             # Salvar melhor modelo
+  metric_for_best_model: "loss"     # Métrica para melhor modelo
+  greater_is_better: false          # Maior é melhor para a métrica
+
+# ============================================================================
+# CONFIGURAÇÕES DE LOGGING
+# ============================================================================
+logging:
+  level: "INFO"                     # Nível de log (DEBUG, INFO, WARNING, ERROR)
+  log_file: "logs/training.log"     # Arquivo de log
+  tensorboard: false                # Usar TensorBoard
+  wandb: false                      # Usar Weights & Biases
+  report_to: []                     # Ferramentas de report
+
+# ============================================================================
+# CONFIGURAÇÕES DE HARDWARE
+# ============================================================================
+hardware:
+  device: "cuda"                    # Dispositivo (auto, cuda, cpu)
+  num_gpus: 1                       # Número de GPUs
+
+# ============================================================================
+# CONFIGURAÇÕES DO SISTEMA ARQV30
+# ============================================================================
+arqv30_integration:
+  enabled: true
+  
+  services:
+    # Serviço 1: Confidence Thresholds
+    confidence_thresholds:
+      enabled: true
+      thresholds:
+        approval: 0.75
+        rejection: 0.35
+        high_confidence: 0.85
+        low_confidence: 0.5
+    
+    # Serviço 2: Contextual Analyzer
+    contextual_analysis:
+      enabled: true
+      check_consistency: true
+      analyze_source_reliability: true
+      verify_temporal_coherence: true
+    
+    # Serviço 3: Rule Engine
+    rule_engine:
+      enabled: true
+      strict_mode: false
+      auto_fix: true
+    
+    # Serviço 4: LLM Reasoning Service
+    llm_reasoning:
+      enabled: true
+      max_reasoning_depth: 5
+      confidence_threshold: 0.6
+      provider: "gemini"
+      model: "gemini-1.5-flash"
+    
+    # Serviço 5: Bias & Disinformation Detector
+    bias_detection:
+      enabled: true
+      bias_keywords:
+        - "sempre"
+        - "nunca"
+        - "todos"
+        - "ninguém"
+      disinformation_patterns:
+        - "fake news"
+        - "conspiração"
+    
+    # Serviço 6: Sentiment Analyzer
+    sentiment_analysis:
+      enabled: true
+      language: "pt"
+      detailed_analysis: true
+    
+    # Serviço 7: AI Verification Service
+    ai_verification:
+      enabled: true
+      verification_threshold: 0.7
+    
+    # Serviço 8: External AI Integration
+    external_ai_integration:
+      enabled: true
+      fallback_models:
+        - "gpt-4"
+        - "claude-3"
+    
+    # Serviço 9: External Review Agent
+    external_review:
+      enabled: true
+      auto_review: true
+
+# ============================================================================
+# CONFIGURAÇÕES DE FINE-TUNING
+# ============================================================================
+fine_tuning:
+  method: "lora"                    # Método (lora, qlora, full)
+  target_task: "text_analysis"      # Tarefa alvo
+  domain: "content_moderation"      # Domínio
+  
+  # Prompts de treinamento
+  prompts:
+    system_prompt: |
+      Você é um agente de IA especializado em análise de conteúdo.
+      Sua função é analisar textos e fornecer insights sobre:
+      - Sentimento (positivo, negativo, neutro)
+      - Viés e desinformação
+      - Qualidade e confiabilidade
+      - Contexto e relevância
+    
+    instruction_template: |
+      ### Instrução:
+      {instruction}
+      
+      ### Entrada:
+      {input}
+      
+      ### Resposta:
+      {output}
+
+# ============================================================================
+# CONFIGURAÇÕES DE CHECKPOINT E RECUPERAÇÃO
+# ============================================================================
+checkpoint:
+  resume_from_checkpoint: null      # Caminho para checkpoint (null = novo treinamento)
+  load_best_model_at_end: true      # Carregar melhor modelo no final
+
+# ============================================================================
+# LIMITES (SEGURANÇA)
+# ============================================================================
+limits:
+  max_dataset_size: 500             # Máximo de exemplos
+  max_sequence_length: 384          # Comprimento máximo
+  max_model_size_gb: 10             # Alerta se modelo > 10GB
+
+# ============================================================================
+# LIMPEZA AUTOMÁTICA
+# ============================================================================
+cleanup:
+  remove_temp_files: true           # Limpar arquivos temporários
+  remove_checkpoints: true          # Remover checkpoints
+  keep_only_merged: true            # Manter apenas modelo mesclado
+  clear_cache_after_train: true     # Limpar cache CUDA
+
+# ============================================================================
+# CONFIGURAÇÕES GGUF
+# ============================================================================
+gguf:
+  auto_convert: true                # Converter automaticamente
+  backup_original: true             # Fazer backup do GGUF original
+  output_type: "f16"                # Tipo de saída (f16, f32, q8_0, etc)
+  cleanup_after_convert: true       # Limpar arquivos HF após converter
+
+# ============================================================================
+# MONITORAMENTO
+# ============================================================================
+monitoring:
+  log_memory_usage: true            # Logar uso de memória
+  log_gpu_usage: true               # Logar uso de GPU
+  alert_on_high_memory: true        # Alertar se memória alta
+  memory_threshold_gb: 8            # Threshold para alerta
+
+# ============================================================================
+# SEGURANÇA
+# ============================================================================
+safety:
+  enable_auto_save: false           # NÃO salvar automaticamente
+  save_only_on_complete: true       # Salvar apenas ao completar
+  validate_before_save: true        # Validar antes de salvar
+  create_backup: true               # Criar backup do original
+
+# ============================================================================
+# NOTAS DE USO
+# ============================================================================
+# 1. Esta configuração é otimizada para ESTABILIDADE e ECONOMIA DE MEMÓRIA
+# 2. Configurações conservadoras evitam crashes durante o treinamento
+# 3. LoRA leve (r=8) reduz parâmetros treináveis
+# 4. Salvamento mínimo evita múltiplos arquivos safetensors
+# 5. Integração ARQV30 completa para análise avançada de conteúdo
+# 6. Backup automático do modelo GGUF original
+# 7. Limpeza automática de arquivos temporários após treinamento
+# ============================================================================

@@ -1,0 +1,153 @@
+# Configuração Padrão do Sistema de Fine-Tuning V8
+# Este arquivo contém as configurações padrão para o sistema
+
+# Configurações do Servidor
+server:
+  host: "127.0.0.1"  # Localhost apenas por segurança
+  port: 12000
+  debug: false
+  cors_enabled: true
+
+# Configurações de Modelos
+models:
+  default_base_model: "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+  usbabc_model_config:
+    vocab_size: 32000
+    hidden_size: 512
+    intermediate_size: 1376
+    num_hidden_layers: 8
+    num_attention_heads: 8
+    num_key_value_heads: 8
+    max_position_embeddings: 2048
+    rms_norm_eps: 1e-5
+    rope_theta: 10000.0
+  
+  # Diretórios
+  models_dir: "modelos"
+  checkpoints_dir: "checkpoints"
+  temp_dir: "temp_lora_adapter"
+
+# Configurações de Treinamento
+training:
+  default_epochs: 1
+  default_batch_size: 8
+  default_learning_rate: 2e-4
+  gradient_accumulation_steps: 1
+  warmup_steps: 1
+  max_grad_norm: 1.0
+  save_steps: 5
+  logging_steps: 1
+  
+  # LoRA Configuration
+  lora:
+    r: 16
+    alpha: 32
+    dropout: 0.1
+    target_modules: ["q_proj", "v_proj", "k_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
+
+# Configurações de Quantização
+quantization:
+  default_type: "q4_k_m"
+  available_types:
+    - "q4_0"
+    - "q4_1" 
+    - "q5_0"
+    - "q5_1"
+    - "q8_0"
+    - "q4_k_m"
+    - "q5_k_m"
+    - "q6_k"
+
+# Configurações de API
+api:
+  max_tokens: 2048
+  temperature: 0.7
+  top_p: 0.9
+  top_k: 40
+  repeat_penalty: 1.1
+  
+  # Rotação de APIs (se aplicável)
+  rotation_enabled: true
+  fallback_models:
+    - "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+    - "microsoft/DialoGPT-small"
+    - "distilgpt2"
+
+# Configurações de Logging
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  max_log_files: 10
+  max_log_size_mb: 50
+  
+  # Diretórios de logs
+  logs_dir: "logs"
+  training_logs: "logs/training.log"
+  app_logs: "logs/app.log"
+  error_logs: "logs/error.log"
+
+# Configurações de Segurança
+security:
+  localhost_only: true
+  max_file_size_mb: 500
+  allowed_file_types:
+    models: [".gguf", ".bin", ".safetensors", ".pt", ".pth"]
+    data: [".json", ".jsonl", ".txt", ".csv"]
+  
+  # Sanitização
+  sanitize_inputs: true
+  max_message_length: 4096
+
+# Configurações de Performance
+performance:
+  use_cuda: true
+  auto_device_map: true
+  low_cpu_mem_usage: true
+  torch_dtype: "float16"  # ou "float32" para CPU
+  
+  # Cache
+  enable_cache: true
+  cache_dir: ".cache"
+  max_cache_size_gb: 10
+
+# Configurações de Interface
+ui:
+  theme: "dark"
+  auto_scroll_logs: true
+  max_chat_history: 100
+  show_debug_info: false
+  
+  # Upload
+  drag_drop_enabled: true
+  progress_updates: true
+  
+# Configurações de Dados
+data:
+  default_data_dir: "dados"
+  max_samples_per_file: 10000
+  validation_split: 0.1
+  
+  # Formatos suportados
+  supported_formats:
+    - "json"
+    - "jsonl" 
+    - "txt"
+    - "csv"
+  
+  # Campos obrigatórios para treinamento
+  required_fields:
+    - "input"
+    - "output"
+
+# Configurações de Backup
+backup:
+  enabled: true
+  backup_dir: "backups"
+  auto_backup_before_training: true
+  max_backups: 5
+  
+# Configurações Experimentais
+experimental:
+  enable_advanced_features: false
+  beta_quantization: false
+  experimental_models: false
